@@ -22,13 +22,13 @@ export async function POST(req: NextRequest) {
 
     // Define directories
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "djmix-"));
-    const publicMixesDir = path.join(process.cwd(), "public", "mixes");
+    const outputDir = path.join(os.tmpdir(), "djmix-output");
 
-    // Ensure public/mixes exists
+    // Ensure output directory exists
     try {
-      await fs.access(publicMixesDir);
+      await fs.access(outputDir);
     } catch {
-      await fs.mkdir(publicMixesDir, { recursive: true });
+      await fs.mkdir(outputDir, { recursive: true });
     }
 
     const savedFiles: string[] = [];
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const outputFilename = `mix_${Date.now()}.mp3`;
-    const outputPath = path.join(publicMixesDir, outputFilename);
+    const outputPath = path.join(outputDir, outputFilename);
 
     // Call our FFmpeg utility
     await generateMix(savedFiles, outputPath, duration, crossfade, playLastTrack);
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
         message: "Mix generated successfully",
-        mixUrl: `/mixes/${outputFilename}`
+        mixUrl: `/api/download?file=${outputFilename}`
     });
 
   } catch (error: any) {

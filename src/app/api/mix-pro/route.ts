@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
     const bpms = bpmsStr.map(b => parseFloat(b));
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "djmix-pro-"));
-    const publicMixesDir = path.join(process.cwd(), "public", "mixes");
+    const outputDir = path.join(os.tmpdir(), "djmix-output");
 
-    try { await fs.access(publicMixesDir); } catch { await fs.mkdir(publicMixesDir, { recursive: true }); }
+    try { await fs.access(outputDir); } catch { await fs.mkdir(outputDir, { recursive: true }); }
 
     const savedFiles: string[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     const outputFilename = `pro_mix_${Date.now()}.mp3`;
-    const outputPath = path.join(publicMixesDir, outputFilename);
+    const outputPath = path.join(outputDir, outputFilename);
 
     await generateMixPro(savedFiles, bpms, outputPath, duration, crossfade, playLastTrack);
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
         message: "Pro Mix generated successfully",
-        mixUrl: `/mixes/${outputFilename}`
+        mixUrl: `/api/download?file=${outputFilename}`
     });
 
   } catch (error: any) {
