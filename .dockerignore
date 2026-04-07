@@ -1,0 +1,7 @@
+node_modules
+.next
+.git
+.venv
+public/mixes/*
+!public/mixes/.gitkeep
+scripts/__pycache__
