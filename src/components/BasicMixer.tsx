@@ -73,7 +73,11 @@ export default function BasicMixer() {
 
         setAnalyzedFiles([...retainedAnalyzed, ...newAnalyzed]);
         
-        newAnalyzed.forEach(t => analyzeTrack(t.id, t.file));
+        (async () => {
+          for (const t of newAnalyzed) {
+            await analyzeTrack(t.id, t.file);
+          }
+        })();
 
         return updatedFiles;
       });

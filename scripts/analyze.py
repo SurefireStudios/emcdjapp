@@ -233,7 +233,7 @@ def analyze_audio(file_path):
         tmp_wav = tempfile.mktemp(suffix=".wav")
         try:
             subprocess.run(
-                ["ffmpeg", "-y", "-i", file_path, "-ac", "1", "-ar", "22050", tmp_wav], 
+                ["ffmpeg", "-y", "-nostdin", "-i", file_path, "-ac", "1", "-ar", "22050", tmp_wav], 
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
             )
             # Load the full track for complete analysis securely from the WAV

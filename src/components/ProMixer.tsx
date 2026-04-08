@@ -80,8 +80,12 @@ export default function ProMixer() {
 
     setTracks(prev => [...prev, ...newTracks]);
 
-    // Trigger analysis for new valid files
-    newTracks.forEach(t => analyzeTrack(t.id, t.file));
+    // Trigger analysis for new valid files sequentially to avoid OOM
+    (async () => {
+      for (const t of newTracks) {
+        await analyzeTrack(t.id, t.file);
+      }
+    })();
   };
 
   const removeTrack = (id: string) => {

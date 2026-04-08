@@ -89,7 +89,12 @@ export default function MashupMixer() {
     });
 
     setMainTracks(prev => [...prev, ...newAcatracks]);
-    newAcatracks.forEach(t => analyzeTrack(t.id, t.file, false));
+    
+    (async () => {
+      for (const t of newAcatracks) {
+        await analyzeTrack(t.id, t.file, false);
+      }
+    })();
   };
 
   const removeMainTrack = (id: string) => {
