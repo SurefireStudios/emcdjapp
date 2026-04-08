@@ -33,12 +33,22 @@ export default function VirtualDJMixer() {
   const [mixUrl, setMixUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const analyzeTrack = async (fileId: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+  });
 
+  const analyzeTrack = async (fileId: string, file: File) => {
     try {
-      const res = await fetch("/api/analyze", { method: "POST", body: formData });
+      const base64 = await fileToBase64(file);
+      const res = await fetch("/api/analyze", { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64: base64, filename: file.name })
+      });
       const data = await res.json();
       
       if (!res.ok) throw new Error(data.error);
@@ -65,13 +75,14 @@ export default function VirtualDJMixer() {
   const handleNewSelect = (newFiles: File[]) => {
     const newItems: AnalyzedFile[] = newFiles.map(file => {
       const id = Math.random().toString(36).substring(7);
-      return { file, id, isAnalyzing: true };
+      return { file, id, isAnalyzing: false };
     });
 
     setTracks(prev => [...prev, ...newItems]);
     
     (async () => {
         for (const t of newItems) {
+            setTracks(prev => prev.map(tr => tr.id === t.id ? { ...tr, isAnalyzing: true } : tr));
             await analyzeTrack(t.id, t.file);
         }
     })();
@@ -189,9 +200,14 @@ export default function VirtualDJMixer() {
                     {track.isAnalyzing ? (
                          <div className="flex items-center space-x-2 text-cyan-400 text-sm">
                            <Loader2 className="w-4 h-4 animate-spin" />
+                           <span>Analyzing...</span>
                          </div>
                     ) : track.error ? (
                         <span className="text-xs text-red-500">Failed</span>
+                    ) : !track.bpm ? (
+                         <div className="flex items-center space-x-2 text-zinc-500 text-sm">
+                           <span>Queued</span>
+                         </div>
                     ) : (
                         <div className="flex items-center space-x-3 text-sm">
                             <div className="flex flex-col items-end">

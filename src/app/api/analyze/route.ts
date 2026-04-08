@@ -10,20 +10,35 @@ const execPromise = util.promisify(exec);
 export async function POST(req: NextRequest) {
   let tempDir = null;
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const contentType = req.headers.get("content-type") || "";
+    let fileBuffer: Buffer;
+    let fileName = "track.mp3";
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (contentType.includes("application/json")) {
+        const body = await req.json();
+        if (!body.fileBase64) {
+             return NextResponse.json({ error: "No file base64 data provided" }, { status: 400 });
+        }
+        // Extract the base64 string, drop the data URI prefix if it exists
+        const b64Data = body.fileBase64.includes(",") ? body.fileBase64.split(",")[1] : body.fileBase64;
+        fileBuffer = Buffer.from(b64Data, "base64");
+        fileName = body.filename || "track.mp3";
+    } else {
+        const formData = await req.formData();
+        const file = formData.get("file") as File;
+        if (!file) {
+          return NextResponse.json({ error: "No file provided" }, { status: 400 });
+        }
+        fileBuffer = Buffer.from(await file.arrayBuffer());
+        fileName = file.name;
     }
 
     // Define temporary directories
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "djmix-analyze-"));
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = path.extname(file.name) || ".mp3";
+    const ext = path.extname(fileName) || ".mp3";
     const tempPath = path.join(tempDir, `track${ext}`);
 
-    await fs.writeFile(tempPath, buffer);
+    await fs.writeFile(tempPath, fileBuffer);
 
     // Call Python script via virtual environment (Cross-platform compatibility)
     const isWindows = process.platform === "win32";
