@@ -152,10 +152,6 @@ export default function MashupMixer() {
       avgEnergy: bgTrack.avgEnergy
     }));
     
-    mainTracks.forEach((track) => {
-        formData.append("mainFiles", track.file);
-    });
-    
     const mainAnalysisData = mainTracks.map(t => ({
       bpm: t.bpm,
       key: t.key,
@@ -172,6 +168,10 @@ export default function MashupMixer() {
     formData.append("bgVolume", bgVolume.toString());
     formData.append("mainVolume", mainVolume.toString());
     formData.append("playLastTrack", playLastTrackToEnd.toString());
+
+    mainTracks.forEach((track) => {
+        formData.append("mainFiles", track.file);
+    });
 
     try {
       const response = await fetch("/api/mix-mashup", {

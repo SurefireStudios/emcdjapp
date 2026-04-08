@@ -120,10 +120,6 @@ export default function VirtualDJMixer() {
 
     const formData = new FormData();
     
-    tracks.forEach((track) => {
-        formData.append("files", track.file);
-    });
-    
     const analysisData = tracks.map(t => ({
       bpm: t.bpm,
       key: t.key,
@@ -140,6 +136,10 @@ export default function VirtualDJMixer() {
     formData.append("strategy", strategy);
     formData.append("mixDuration", mixDuration);
     formData.append("playLastTrack", playLastTrackToEnd.toString());
+
+    tracks.forEach((track) => {
+        formData.append("files", track.file);
+    });
 
     try {
       const response = await fetch("/api/mix-virtual", {
