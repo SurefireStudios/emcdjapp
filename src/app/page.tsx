@@ -3,10 +3,12 @@
 import { useState } from "react";
 import BasicMixer from "@/components/BasicMixer";
 import ProMixer from "@/components/ProMixer";
-import { AudioLines, Sparkles } from "lucide-react";
+import MashupMixer from "@/components/MashupMixer";
+import VirtualDJMixer from "@/components/VirtualDJMixer";
+import { AudioLines, Sparkles, Layers, Headphones } from "lucide-react";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"basic" | "pro">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "pro" | "mashup" | "virtual">("basic");
 
   return (
     <main className="min-h-screen pt-12 pb-24 px-8 md:px-24 max-w-5xl mx-auto flex flex-col items-center">
@@ -39,10 +41,32 @@ export default function Home() {
             <Sparkles className="w-4 h-4 mr-2" />
             Pro
           </button>
+          <button
+            onClick={() => setActiveTab("mashup")}
+            className={`flex items-center px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
+              activeTab === "mashup"
+                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-500/20"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50"
+            }`}
+          >
+            <Layers className="w-4 h-4 mr-2" />
+            Mashup
+          </button>
+          <button
+            onClick={() => setActiveTab("virtual")}
+            className={`flex items-center px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
+              activeTab === "virtual"
+                ? "bg-cyan-600 text-white shadow-sm shadow-cyan-500/20"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50"
+            }`}
+          >
+            <Headphones className="w-4 h-4 mr-2" />
+            Virtual DJ
+          </button>
         </div>
       </div>
 
-      {activeTab === "basic" ? <BasicMixer /> : <ProMixer />}
+      {activeTab === "basic" ? <BasicMixer /> : activeTab === "pro" ? <ProMixer /> : activeTab === "mashup" ? <MashupMixer /> : <VirtualDJMixer />}
     </main>
   );
 }

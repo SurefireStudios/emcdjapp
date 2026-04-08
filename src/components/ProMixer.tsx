@@ -10,11 +10,19 @@ interface AnalyzedFile {
   isAnalyzing: boolean;
   bpm?: number;
   key?: string;
+  duration?: number;
+  sections?: any;
+  beats?: number[];
+  downbeats?: number[];
+  bestEntryPoint?: number;
+  bestExitPoint?: number;
+  avgEnergy?: number;
   error?: string;
 }
 
 export default function ProMixer() {
   const [tracks, setTracks] = useState<AnalyzedFile[]>([]);
+  const [strategy, setStrategy] = useState<string>("high_energy");
   const [isProcessing, setIsProcessing] = useState(false);
   const [playLastTrackToEnd, setPlayLastTrackToEnd] = useState<boolean>(true);
   const [mixUrl, setMixUrl] = useState<string | null>(null);
@@ -32,10 +40,8 @@ export default function ProMixer() {
 
       setTracks(prev => {
         const updated = prev.map(t => 
-          t.id === fileId ? { ...t, isAnalyzing: false, bpm: data.bpm, key: data.key } : t
+          t.id === fileId ? { ...t, isAnalyzing: false, ...data } : t
         );
-        // We defer reordering completely until all analysis is done, 
-        // but for MVP it's safe to sort every time a track finishes.
         return [...updated].sort((a, b) => (a.bpm || 999) - (b.bpm || 999));
       });
     } catch (e: any) {
@@ -90,19 +96,28 @@ export default function ProMixer() {
     setMixUrl(null);
 
     const formData = new FormData();
-    // Use the potentially reordered track list
     tracks.forEach((track) => {
         formData.append("files", track.file);
-        formData.append("bpms", track.bpm?.toString() || "");
     });
     
-    // In Pro phase we hardcode defaults or can add detailed UI per-track
-    formData.append("crossfade", "8"); // longer crossfade for better blending
-    formData.append("duration", "45"); // tighter edits for pro mode demo
+    const analysisData = tracks.map(t => ({
+      bpm: t.bpm,
+      key: t.key,
+      duration: t.duration,
+      beats: t.beats,
+      downbeats: t.downbeats,
+      sections: t.sections,
+      bestEntryPoint: t.bestEntryPoint,
+      bestExitPoint: t.bestExitPoint,
+      avgEnergy: t.avgEnergy
+    }));
+    
+    formData.append("analysisData", JSON.stringify(analysisData));
+    formData.append("strategy", strategy);
     formData.append("playLastTrack", playLastTrackToEnd.toString());
 
     try {
-      const response = await fetch("/api/mix-pro", {
+      const response = await fetch("/api/mix-smart", {
         method: "POST",
         body: formData,
       });
@@ -180,16 +195,26 @@ export default function ProMixer() {
                         ) : track.error ? (
                             <span className="text-xs text-red-500">Analysis Failed</span>
                         ) : (
-                            <div className="flex items-center space-x-3 text-sm">
-                                <div className="flex flex-col items-end">
-                                    <span className="text-zinc-400 text-xs">BPM</span>
-                                    <span className="font-mono font-bold text-zinc-200">{track.bpm}</span>
+                            <div className="flex flex-col space-y-1 text-sm">
+                                <div className="flex items-center space-x-3">
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-zinc-400 text-xs text-right">BPM</span>
+                                        <span className="font-mono font-bold text-zinc-200">{track.bpm}</span>
+                                    </div>
+                                    <div className="h-6 w-px bg-zinc-700"></div>
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-zinc-400 text-xs">KEY</span>
+                                        <span className="font-mono font-bold text-amber-400">{track.key}</span>
+                                    </div>
                                 </div>
-                                <div className="h-6 w-px bg-zinc-700"></div>
-                                <div className="flex flex-col items-start">
-                                    <span className="text-zinc-400 text-xs">KEY</span>
-                                    <span className="font-mono font-bold text-amber-400">{track.key}</span>
-                                </div>
+                                {track.avgEnergy && (
+                                    <div className="w-full h-1.5 bg-zinc-700 rounded overflow-hidden mt-1 relative" title={`Energy Level: ${track.avgEnergy.toFixed(2)}`}>
+                                        <div 
+                                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-green-500 via-amber-500 to-red-500" 
+                                          style={{ width: `${Math.min(100, (track.avgEnergy / 0.3) * 100)}%` }} 
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -215,22 +240,39 @@ export default function ProMixer() {
               Pro Generation
             </h3>
             <p className="text-sm text-zinc-400 border-b border-zinc-700/50 pb-6 mb-6">
-              The engine will match tempos and perform advanced transitions.
+              The AI Engine matches structures, scales, and downbeats for continuous energy flow.
             </p>
 
-            <div className="mb-6">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={playLastTrackToEnd}
-                    onChange={(e) => setPlayLastTrackToEnd(e.target.checked)}
-                    className="form-checkbox h-5 w-5 text-amber-500 bg-zinc-800 border-zinc-600 rounded focus:ring-amber-500 focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-zinc-300">Play last track to end</span>
-                </label>
-                <p className="text-xs text-zinc-500 mt-2 pl-8 tracking-wide">
-                  If disabled, the last track will fade out early.
-                </p>
+            <div className="mb-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                    Mix Strategy
+                  </label>
+                  <select 
+                    value={strategy}
+                    onChange={(e) => setStrategy(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-zinc-200 text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  >
+                    <option value="high_energy">🔥 High Energy (Chorus to Chorus)</option>
+                    <option value="build_up">📈 Build Up (Progressive Energy)</option>
+                    <option value="chill">🧊 Chill (Smooth Verses/Bridges)</option>
+                  </select>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-700/50">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={playLastTrackToEnd}
+                      onChange={(e) => setPlayLastTrackToEnd(e.target.checked)}
+                      className="form-checkbox h-5 w-5 text-amber-500 bg-zinc-800 border-zinc-600 rounded focus:ring-amber-500 focus:ring-2"
+                    />
+                    <span className="text-sm font-medium text-zinc-300">Play last track to end</span>
+                  </label>
+                  <p className="text-xs text-zinc-500 mt-2 pl-8 tracking-wide">
+                    If disabled, the last track will fade out early.
+                  </p>
+                </div>
             </div>
 
             <button

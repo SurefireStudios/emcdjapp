@@ -33,7 +33,11 @@ export async function POST(req: NextRequest) {
       
     const scriptPath = path.join(process.cwd(), "scripts", "analyze.py");
 
-    const { stdout, stderr } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${tempPath}"`);
+    // Increase max buffer for larger JSON output (beat arrays can be large)
+    const { stdout, stderr } = await execPromise(
+      `"${pythonExecutable}" "${scriptPath}" "${tempPath}"`,
+      { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer
+    );
 
     const result = JSON.parse(stdout.trim());
 
@@ -44,6 +48,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       bpm: result.bpm,
       key: result.key,
+      duration: result.duration,
+      beats: result.beats,
+      downbeats: result.downbeats,
+      sections: result.sections,
+      bestEntryPoint: result.best_entry_point,
+      bestExitPoint: result.best_exit_point,
+      avgEnergy: result.avg_energy,
     });
 
   } catch (error: any) {

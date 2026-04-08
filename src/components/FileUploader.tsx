@@ -6,10 +6,9 @@ import { UploadCloud, X, Music } from "lucide-react";
 interface FileUploaderProps {
   files: File[];
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
-  maxFiles?: number;
 }
 
-export default function FileUploader({ files, setFiles, maxFiles = 5 }: FileUploaderProps) {
+export default function FileUploader({ files, setFiles }: FileUploaderProps) {
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -18,13 +17,10 @@ export default function FileUploader({ files, setFiles, maxFiles = 5 }: FileUplo
       );
 
       if (droppedFiles.length > 0) {
-        setFiles((prev) => {
-          const newFiles = [...prev, ...droppedFiles];
-          return newFiles.slice(0, maxFiles);
-        });
+        setFiles((prev) => [...prev, ...droppedFiles]);
       }
     },
-    [maxFiles, setFiles]
+    [setFiles]
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,10 +28,7 @@ export default function FileUploader({ files, setFiles, maxFiles = 5 }: FileUplo
       const selectedFiles = Array.from(e.target.files).filter((file) =>
         file.type.startsWith("audio/")
       );
-      setFiles((prev) => {
-        const newFiles = [...prev, ...selectedFiles];
-        return newFiles.slice(0, maxFiles);
-      });
+      setFiles((prev) => [...prev, ...selectedFiles]);
     }
   };
 
@@ -48,11 +41,7 @@ export default function FileUploader({ files, setFiles, maxFiles = 5 }: FileUplo
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-          files.length >= maxFiles
-            ? "border-zinc-700 bg-zinc-800/50 opacity-50 cursor-not-allowed"
-            : "border-amber-500/50 hover:border-amber-400 bg-zinc-800/50 hover:bg-zinc-800/80 cursor-pointer"
-        }`}
+        className="border-2 border-dashed rounded-xl p-8 text-center transition-all border-amber-500/50 hover:border-amber-400 bg-zinc-800/50 hover:bg-zinc-800/80 cursor-pointer"
       >
         <input
           type="file"
@@ -61,16 +50,16 @@ export default function FileUploader({ files, setFiles, maxFiles = 5 }: FileUplo
           className="hidden"
           id="audio-upload"
           onChange={handleFileInput}
-          disabled={files.length >= maxFiles}
+          disabled={false}
         />
         <label
           htmlFor="audio-upload"
-          className={files.length >= maxFiles ? "cursor-not-allowed" : "cursor-pointer"}
+          className="cursor-pointer"
         >
           <UploadCloud className="w-12 h-12 mx-auto text-amber-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Drag & Drop Audio Files</h3>
           <p className="text-zinc-400 text-sm">
-            Upload up to {maxFiles} tracks (MP3, WAV, M4A)
+            Upload tracks (MP3, WAV, M4A)
           </p>
         </label>
       </div>
@@ -78,7 +67,7 @@ export default function FileUploader({ files, setFiles, maxFiles = 5 }: FileUplo
       {files.length > 0 && (
         <div className="mt-6 space-y-3">
           <h4 className="text-sm font-medium text-zinc-300 mb-3">
-            Selected Tracks ({files.length}/{maxFiles})
+            Selected Tracks ({files.length})
           </h4>
           {files.map((file, index) => (
             <div

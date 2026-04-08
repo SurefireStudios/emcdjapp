@@ -3,16 +3,81 @@
 import { useState } from "react";
 import FileUploader from "@/components/FileUploader";
 import AudioPlayer from "@/components/AudioPlayer";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
+
+interface AnalyzedFile {
+  file: File;
+  id: string;
+  isAnalyzing: boolean;
+  bpm?: number;
+  key?: string;
+  duration?: number;
+  sections?: any;
+  beats?: number[];
+  downbeats?: number[];
+  bestEntryPoint?: number;
+  bestExitPoint?: number;
+  avgEnergy?: number;
+  error?: string;
+}
 
 export default function BasicMixer() {
   const [files, setFiles] = useState<File[]>([]);
+  const [analyzedFiles, setAnalyzedFiles] = useState<AnalyzedFile[]>([]);
   const [crossfade, setCrossfade] = useState<number>(6);
   const [duration, setDuration] = useState<number>(60);
   const [playLastTrackToEnd, setPlayLastTrackToEnd] = useState<boolean>(true);
+  const [isSmartMix, setIsSmartMix] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [mixUrl, setMixUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const analyzeTrack = async (fileId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/analyze", { method: "POST", body: formData });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error);
+
+      setAnalyzedFiles(prev => {
+        return prev.map(t => 
+          t.id === fileId ? { ...t, isAnalyzing: false, ...data } : t
+        );
+      });
+    } catch (e: any) {
+      setAnalyzedFiles(prev => prev.map(t => 
+        t.id === fileId ? { ...t, isAnalyzing: false, error: e.message } : t
+      ));
+    }
+  };
+
+  const handleSetFiles: React.Dispatch<React.SetStateAction<File[]>> = (newFilesState) => {
+      setFiles((prevFiles) => {
+        // Resolve new files if functional update
+        const updatedFiles = typeof newFilesState === 'function' ? newFilesState(prevFiles) : newFilesState;
+        
+        // Find newly added files
+        const addedFiles = updatedFiles.filter(uf => !prevFiles.some(pf => pf.name === uf.name && pf.size === uf.size));
+        
+        // Find deleted files
+        const retainedAnalyzed = analyzedFiles.filter(af => updatedFiles.some(uf => uf.name === af.file.name && uf.size === af.file.size));
+        
+        const newAnalyzed: AnalyzedFile[] = addedFiles.map(file => ({
+            file,
+            id: Math.random().toString(36).substring(7),
+            isAnalyzing: true
+        }));
+
+        setAnalyzedFiles([...retainedAnalyzed, ...newAnalyzed]);
+        
+        newAnalyzed.forEach(t => analyzeTrack(t.id, t.file));
+
+        return updatedFiles;
+      });
+  };
 
   const handleGenerate = async () => {
     if (files.length === 0) return;
@@ -54,13 +119,20 @@ export default function BasicMixer() {
           Basic Mix
         </h2>
         <p className="text-zinc-400 max-w-xl mx-auto font-light">
-          Upload up to 5 tracks. We'll automatically trim and crossfade them into a seamless, continuous mix.
+          Upload your tracks. We'll automatically trim and crossfade them into a seamless, continuous mix.
         </p>
       </div>
 
       <div className="w-full grid md:grid-cols-3 gap-8">
         <div className="md:col-span-2 space-y-6">
-          <FileUploader files={files} setFiles={setFiles} maxFiles={5} />
+          <FileUploader files={files} setFiles={handleSetFiles} />
+          
+          {isSmartMix && analyzedFiles.some(t => t.isAnalyzing) && (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-3">
+                  <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+                  <p className="text-sm text-zinc-300">Analyzing track structure for AI Mix...</p>
+              </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -69,8 +141,26 @@ export default function BasicMixer() {
               <span className="bg-zinc-700 w-8 h-8 rounded-full flex items-center justify-center text-sm mr-3 text-zinc-300">⚙️</span>
               Mix Settings
             </h3>
+
+            <div className="mb-6 pb-6 border-b border-zinc-700/50">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSmartMix}
+                    onChange={(e) => setIsSmartMix(e.target.checked)}
+                    className="form-checkbox h-5 w-5 text-amber-500 bg-zinc-800 border-zinc-600 rounded focus:ring-amber-500 focus:ring-2"
+                  />
+                  <div className="flex items-center text-zinc-100 font-bold">
+                      <Sparkles className="w-4 h-4 text-amber-400 mr-2" />
+                      Enable AI Smart Mix
+                  </div>
+                </label>
+                <p className="text-xs text-zinc-400 mt-2 pl-8 tracking-wide">
+                  Overrides manual settings. AI analyzes track energy and sections to create optimal, beat-matched transitions.
+                </p>
+            </div>
             
-            <div className="space-y-6">
+            <div className={`space-y-6 ${isSmartMix ? 'opacity-50 pointer-events-none' : ''}`}>
               <div>
                 <label className="flex justify-between text-sm font-medium text-zinc-300 mb-2">
                   <span>Crossfade Duration</span>
@@ -113,7 +203,7 @@ export default function BasicMixer() {
                   <span className="text-sm font-medium text-zinc-300">Play last track to end</span>
                 </label>
                 <p className="text-xs text-zinc-500 mt-2 pl-8 tracking-wide">
-                  If disabled, the last track will fade out early to match the track duration.
+                  If disabled, the last track will fade out early.
                 </p>
               </div>
             </div>
