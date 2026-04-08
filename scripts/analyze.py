@@ -289,6 +289,8 @@ def analyze_audio(file_path):
         }
 
         print(json.dumps(result))
+        sys.stdout.flush()
+        os._exit(0)
 
     except Exception as e:
         import traceback
@@ -298,6 +300,8 @@ def analyze_audio(file_path):
             "traceback": traceback.format_exc()
         }
         print(json.dumps(error_result))
+        sys.stdout.flush()
+        os._exit(1)
 
 
 if __name__ == "__main__":

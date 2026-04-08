@@ -34,12 +34,19 @@ export async function POST(req: NextRequest) {
     const scriptPath = path.join(process.cwd(), "scripts", "analyze.py");
 
     // Increase max buffer for larger JSON output (beat arrays can be large)
+    // Add 2 minute timeout so it fails explicitly instead of spinning forever
     const { stdout, stderr } = await execPromise(
       `"${pythonExecutable}" "${scriptPath}" "${tempPath}"`,
-      { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer
+      { maxBuffer: 10 * 1024 * 1024, timeout: 120000 } // 10MB buffer, 120s timeout
     );
 
-    const result = JSON.parse(stdout.trim());
+    const rawOutput = stdout.trim();
+    // In case Python prints warnings to stdout, extract just the JSON
+    const jsonStart = rawOutput.indexOf('{');
+    const jsonEnd = rawOutput.lastIndexOf('}') + 1;
+    const cleanJson = jsonStart !== -1 ? rawOutput.substring(jsonStart, jsonEnd) : rawOutput;
+    
+    const result = JSON.parse(cleanJson);
 
     if (!result.success) {
         throw new Error(result.error);
