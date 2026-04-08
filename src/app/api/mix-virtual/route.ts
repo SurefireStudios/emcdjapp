@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!analysisDataStr) {
+        console.error("CRITICAL: analysisDataStr is entirely empty or missing in req.formData!");
+    }
     const analysisData = JSON.parse(analysisDataStr || "[]");
     const strategy = (strategyStr as "high_energy" | "chill" | "build_up") || "high_energy";
     const mixDuration = (mixDurationStr as "short" | "medium" | "full") || "medium";
@@ -46,15 +49,23 @@ export async function POST(req: NextRequest) {
         const filePath = path.join(tempDir, `track_${i}_${Date.now()}.mp3`);
         fs.writeFileSync(filePath, buffer);
         
+        const fallbackAnalysis: any = { bpm: 120, key: "C", duration: 180, beats: [], downbeats: [], sections: [], bestEntryPoint: 0, bestExitPoint: 180, avgEnergy: 0.5 };
+        const safeAnalysis = analysisData[i] || fallbackAnalysis;
+        
         tracks.push({
             file: filePath,
-            analysis: analysisData[i]
+            analysis: safeAnalysis
         });
     }
+
+    if (!tracks || tracks.length === 0) throw new Error("Tracks array is completely empty");
 
     // Process Stems for Overlaps
     for (let i = 0; i < tracks.length - 1; i++) {
         const track = tracks[i];
+        if (!track) throw new Error(`Track at index ${i} is completely undefined`);
+        if (!track.analysis) throw new Error(`Track analysis at index ${i} is completely undefined`);
+        
         const exitPoint = resolveExitPoint(track.analysis, mixDuration);
         track.resolvedExit = exitPoint;
         const sliceStart = Math.max(0, exitPoint - 16); // Extract 16s before exit

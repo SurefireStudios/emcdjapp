@@ -52,9 +52,11 @@ export async function POST(req: NextRequest) {
     const bgPath = path.join(tempDir, `bg_track${bgExt}`);
     await fs.writeFile(bgPath, bgBuffer);
 
+    const fallbackAnalysis: any = { bpm: 120, key: "C", duration: 180, beats: [], downbeats: [], sections: [], bestEntryPoint: 0, bestExitPoint: 180, avgEnergy: 0.5 };
+
     const backgroundTrack: SmartMixTrack = {
       file: bgPath,
-      analysis: bgAnalysis,
+      analysis: bgAnalysis || fallbackAnalysis,
     };
 
     // Save main tracks
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
 
       mainTracks.push({
         file: tempPath,
-        analysis: mainAnalysis[i],
+        analysis: mainAnalysis[i] || fallbackAnalysis,
       });
     }
 
