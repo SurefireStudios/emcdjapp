@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     // Start background processing
     execPromise(
       `"${pythonExecutable}" "${scriptPath}" "${tempPath}"`,
-      { maxBuffer: 10 * 1024 * 1024, timeout: 300000, killSignal: 'SIGKILL' } // 5 min
+      { maxBuffer: 10 * 1024 * 1024, timeout: 480000, killSignal: 'SIGKILL' } // 8 min
     ).then(async ({ stdout }) => {
         try {
             const rawOutput = stdout.trim();

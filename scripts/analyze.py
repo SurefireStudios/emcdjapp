@@ -27,7 +27,7 @@ CHROMA_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 def detect_key(y, sr):
     """Detect musical key using Krumhansl-Schmuckler algorithm."""
-    chromagram = librosa.feature.chroma_cqt(y=y, sr=sr)
+    chromagram = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=1024)
     mean_chroma = chromagram.mean(axis=1)
     # Normalize
     mean_chroma = mean_chroma / (mean_chroma.sum() + 1e-6)
@@ -245,14 +245,14 @@ def analyze_audio(file_path):
         duration = float(librosa.get_duration(y=y, sr=sr))
 
         # 1. BPM Detection
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+        tempo, beat_frames_global = librosa.beat.beat_track(y=y, sr=sr, hop_length=1024)
         if hasattr(tempo, "item"):
             tempo_val = float(tempo.item())
         else:
             tempo_val = float(tempo)
 
         # 2. Beat timestamps
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
+        beat_times = librosa.frames_to_time(beat_frames_global, sr=sr, hop_length=1024)
         beats = [round(float(b), 3) for b in beat_times]
 
         # 3. Downbeats (every 4 beats = 1 bar)
