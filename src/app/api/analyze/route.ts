@@ -8,7 +8,7 @@ import util from "util";
 const execPromise = util.promisify(exec);
 
 export async function POST(req: NextRequest) {
-  let tempDir = null;
+  let tempDir: string | null = null;
   try {
     const contentType = req.headers.get("content-type") || "";
     let fileBuffer: Buffer;
