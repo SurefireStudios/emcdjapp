@@ -32,12 +32,22 @@ export default function BasicMixer() {
   const [mixUrl, setMixUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const analyzeTrack = async (fileId: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+  });
 
+  const analyzeTrack = async (fileId: string, file: File) => {
     try {
-      const res = await fetch("/api/analyze", { method: "POST", body: formData });
+      const base64 = await fileToBase64(file);
+      const res = await fetch("/api/analyze", { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64: base64, filename: file.name })
+      });
       const data = await res.json();
       
       if (!res.ok) throw new Error(data.error);
@@ -68,13 +78,14 @@ export default function BasicMixer() {
         const newAnalyzed: AnalyzedFile[] = addedFiles.map(file => ({
             file,
             id: Math.random().toString(36).substring(7),
-            isAnalyzing: true
+            isAnalyzing: false
         }));
 
         setAnalyzedFiles([...retainedAnalyzed, ...newAnalyzed]);
         
         (async () => {
           for (const t of newAnalyzed) {
+            setAnalyzedFiles(prev => prev.map(tr => tr.id === t.id ? { ...tr, isAnalyzing: true } : tr));
             await analyzeTrack(t.id, t.file);
           }
         })();

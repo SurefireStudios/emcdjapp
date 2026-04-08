@@ -32,17 +32,27 @@ export default function MashupMixer() {
   const [mixUrl, setMixUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const analyzeTrack = async (fileId: string, file: File, isBg: boolean) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+  });
 
+  const analyzeTrack = async (fileId: string, file: File, type: "instrumental" | "acapella") => {
     try {
-      const res = await fetch("/api/analyze", { method: "POST", body: formData });
+      const base64 = await fileToBase64(file);
+      const res = await fetch("/api/analyze", { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64: base64, filename: file.name, type })
+      });
       const data = await res.json();
       
       if (!res.ok) throw new Error(data.error);
 
-      if (isBg) {
+      if (type === "instrumental") {
         setBgTrack(prev => (prev?.id === fileId ? { ...prev, isAnalyzing: false, ...data } : prev));
       } else {
         setMainTracks(prev => {
@@ -53,7 +63,7 @@ export default function MashupMixer() {
         });
       }
     } catch (e: any) {
-      if (isBg) {
+      if (type === "instrumental") {
         setBgTrack(prev => (prev?.id === fileId ? { ...prev, isAnalyzing: false, error: e.message } : prev));
       } else {
         setMainTracks(prev => prev.map(t => 
@@ -71,9 +81,9 @@ export default function MashupMixer() {
 
   const handleBgSelect = (file: File) => {
     const id = Math.random().toString(36).substring(7);
-    const newBg = { file, id, isAnalyzing: true };
+    const newBg = { file, id, isAnalyzing: true, type: "instrumental" as const };
     setBgTrack(newBg);
-    analyzeTrack(id, file, true);
+    analyzeTrack(id, file, "instrumental");
   };
 
   const handleMainDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -85,14 +95,15 @@ export default function MashupMixer() {
   const handleMainSelect = (newFiles: File[]) => {
     const newAcatracks: AnalyzedFile[] = newFiles.map(file => {
       const id = Math.random().toString(36).substring(7);
-      return { file, id, isAnalyzing: true };
+      return { file, id, isAnalyzing: false, type: "acapella" };
     });
 
     setMainTracks(prev => [...prev, ...newAcatracks]);
     
     (async () => {
       for (const t of newAcatracks) {
-        await analyzeTrack(t.id, t.file, false);
+        setMainTracks(prev => prev.map(tr => tr.id === t.id ? { ...tr, isAnalyzing: true } : tr));
+        await analyzeTrack(t.id, t.file, "acapella");
       }
     })();
   };
@@ -114,7 +125,6 @@ export default function MashupMixer() {
 
     const formData = new FormData();
     
-    // Background track data
     formData.append("bgFile", bgTrack.file);
     formData.append("bgAnalysis", JSON.stringify({
       bpm: bgTrack.bpm,
@@ -128,7 +138,6 @@ export default function MashupMixer() {
       avgEnergy: bgTrack.avgEnergy
     }));
     
-    // Main tracks data
     mainTracks.forEach((track) => {
         formData.append("mainFiles", track.file);
     });
@@ -146,7 +155,6 @@ export default function MashupMixer() {
     }));
     formData.append("mainAnalysis", JSON.stringify(mainAnalysisData));
     
-    // Controls
     formData.append("bgVolume", bgVolume.toString());
     formData.append("mainVolume", mainVolume.toString());
     formData.append("playLastTrack", playLastTrackToEnd.toString());
@@ -171,10 +179,8 @@ export default function MashupMixer() {
     <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="w-full grid md:grid-cols-3 gap-8">
         
-        {/* Left Side: Upload & Analysis */}
         <div className="md:col-span-2 space-y-8">
           
-          {/* Background Track Dropzone */}
           <div className="space-y-4">
               <h3 className="text-xl font-bold text-zinc-100 flex items-center">
                   <Layers className="w-5 h-5 mr-3 text-emerald-400" />
@@ -242,7 +248,6 @@ export default function MashupMixer() {
 
           <div className="h-px w-full bg-zinc-800/80"></div>
 
-          {/* Main Vocal Tracks Dropzone */}
           <div className="space-y-4">
               <h3 className="text-xl font-bold text-zinc-100 flex items-center">
                   <Music className="w-5 h-5 mr-3 text-amber-500" />
@@ -287,11 +292,16 @@ export default function MashupMixer() {
                       
                       <div className="flex items-center space-x-4">
                         {track.isAnalyzing ? (
-                             <div className="flex items-center space-x-2 text-amber-400 text-sm">
+                             <div className="flex items-center space-x-2 text-fuchsia-400 text-sm">
                                <Loader2 className="w-4 h-4 animate-spin" />
+                               <span>Analyzing...</span>
                              </div>
                         ) : track.error ? (
-                            <span className="text-xs text-red-500">Failed</span>
+                            <span className="text-xs text-red-500">Analysis Failed</span>
+                        ) : !track.bpm ? (
+                             <div className="flex items-center space-x-2 text-zinc-500 text-sm">
+                               <span>Queued</span>
+                             </div>
                         ) : (
                             <div className="flex flex-col space-y-1 text-sm">
                                 <div className="flex items-center space-x-3">
