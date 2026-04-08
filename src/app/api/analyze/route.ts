@@ -50,9 +50,10 @@ export async function POST(req: NextRequest) {
 
     // Increase max buffer for larger JSON output (beat arrays can be large)
     // Add 2 minute timeout so it fails explicitly instead of spinning forever
+    // Use SIGKILL because C-extensions (like librosa/numpy) can ignore SIGTERM
     const { stdout, stderr } = await execPromise(
       `"${pythonExecutable}" "${scriptPath}" "${tempPath}"`,
-      { maxBuffer: 10 * 1024 * 1024, timeout: 120000 } // 10MB buffer, 120s timeout
+      { maxBuffer: 10 * 1024 * 1024, timeout: 120000, killSignal: 'SIGKILL' } // 10MB buffer, 120s timeout
     );
 
     const rawOutput = stdout.trim();

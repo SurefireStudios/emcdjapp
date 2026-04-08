@@ -60,7 +60,7 @@ def detect_sections(y, sr, duration):
     Returns a list of section dicts with start, end, energy, label.
     """
     # Compute features for segmentation
-    hop_length = 512
+    hop_length = 1024
     n_fft = 2048
 
     # MFCC features for self-similarity
@@ -233,11 +233,11 @@ def analyze_audio(file_path):
         tmp_wav = tempfile.mktemp(suffix=".wav")
         try:
             subprocess.run(
-                ["ffmpeg", "-y", "-nostdin", "-i", file_path, "-ac", "1", "-ar", "22050", tmp_wav], 
+                ["ffmpeg", "-y", "-nostdin", "-i", file_path, "-ac", "1", "-ar", "11025", tmp_wav], 
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
             )
             # Load the full track for complete analysis securely from the WAV
-            y, sr = librosa.load(tmp_wav, sr=22050, mono=True)
+            y, sr = librosa.load(tmp_wav, sr=11025, mono=True)
         finally:
             if os.path.exists(tmp_wav):
                 os.remove(tmp_wav)
