@@ -52,11 +52,27 @@ export default function BasicMixer() {
       
       if (!res.ok) throw new Error(data.error);
 
-      setAnalyzedFiles(prev => {
-        return prev.map(t => 
-          t.id === fileId ? { ...t, isAnalyzing: false, ...data } : t
-        );
-      });
+      const jobId = data.jobId;
+      if (!jobId) throw new Error("No job ID returned from server");
+
+      while (true) {
+          await new Promise(r => setTimeout(r, 3000));
+          const pollRes = await fetch(`/api/analyze?jobId=${jobId}`);
+          const pollData = await pollRes.json();
+          
+          if (pollData.status === "done") {
+               setAnalyzedFiles(prev => {
+                 return prev.map(t => 
+                   t.id === fileId ? { ...t, isAnalyzing: false, ...pollData.data } : t
+                 );
+               });
+               break;
+          } else if (pollData.status === "error") {
+               throw new Error(pollData.error || "Analysis failed internally");
+          } else if (pollData.status === "not_found") {
+               throw new Error("Analysis job lost or expired");
+          }
+      }
     } catch (e: any) {
       setAnalyzedFiles(prev => prev.map(t => 
         t.id === fileId ? { ...t, isAnalyzing: false, error: e.message } : t

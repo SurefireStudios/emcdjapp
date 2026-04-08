@@ -53,12 +53,30 @@ export default function VirtualDJMixer() {
       
       if (!res.ok) throw new Error(data.error);
 
-      setTracks(prev => {
-        const updated = prev.map(t => 
-          t.id === fileId ? { ...t, isAnalyzing: false, ...data } : t
-        );
-        return [...updated];
-      });
+      const jobId = data.jobId;
+      if (!jobId) throw new Error("No job ID returned from server");
+
+      // Poll for job completion every 3 seconds to bypass Render 100s timeout
+      while (true) {
+          await new Promise(r => setTimeout(r, 3000));
+          const pollRes = await fetch(`/api/analyze?jobId=${jobId}`);
+          const pollData = await pollRes.json();
+          
+          if (pollData.status === "done") {
+               setTracks(prev => {
+                 const updated = prev.map(t => 
+                   t.id === fileId ? { ...t, isAnalyzing: false, ...pollData.data } : t
+                 );
+                 return [...updated];
+               });
+               break;
+          } else if (pollData.status === "error") {
+               throw new Error(pollData.error || "Analysis failed internally");
+          } else if (pollData.status === "not_found") {
+               throw new Error("Analysis job lost or expired");
+          }
+          // if analyzing, continue loop
+      }
     } catch (e: any) {
       setTracks(prev => prev.map(t => 
         t.id === fileId ? { ...t, isAnalyzing: false, error: e.message } : t

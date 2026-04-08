@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
         if (!body.fileBase64) {
              return NextResponse.json({ error: "No file base64 data provided" }, { status: 400 });
         }
-        // Extract the base64 string, drop the data URI prefix if it exists
         const b64Data = body.fileBase64.includes(",") ? body.fileBase64.split(",")[1] : body.fileBase64;
         fileBuffer = Buffer.from(b64Data, "base64");
         fileName = body.filename || "track.mp3";
@@ -33,62 +32,73 @@ export async function POST(req: NextRequest) {
         fileName = file.name;
     }
 
-    // Define temporary directories
+    const jobId = Math.random().toString(36).substring(7);
+    const jobFile = path.join(os.tmpdir(), `job_${jobId}.json`);
+    
+    // Set initial status
+    await fs.writeFile(jobFile, JSON.stringify({ status: "analyzing" }));
+
+    // Define temporary directories for execution
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "djmix-analyze-"));
     const ext = path.extname(fileName) || ".mp3";
     const tempPath = path.join(tempDir, `track${ext}`);
 
     await fs.writeFile(tempPath, fileBuffer);
 
-    // Call Python script via virtual environment (Cross-platform compatibility)
-    const isWindows = process.platform === "win32";
-    const pythonExecutable = isWindows 
+    // Call Python script asynchronously (do not await here!)
+    const pythonExecutable = process.platform === "win32" 
       ? path.join(process.cwd(), ".venv", "Scripts", "python.exe")
       : path.join(process.cwd(), ".venv", "bin", "python3");
       
     const scriptPath = path.join(process.cwd(), "scripts", "analyze.py");
 
-    // Increase max buffer for larger JSON output (beat arrays can be large)
-    // Add 2 minute timeout so it fails explicitly instead of spinning forever
-    // Use SIGKILL because C-extensions (like librosa/numpy) can ignore SIGTERM
-    const { stdout, stderr } = await execPromise(
+    // Start background processing
+    execPromise(
       `"${pythonExecutable}" "${scriptPath}" "${tempPath}"`,
-      { maxBuffer: 10 * 1024 * 1024, timeout: 120000, killSignal: 'SIGKILL' } // 10MB buffer, 120s timeout
-    );
-
-    const rawOutput = stdout.trim();
-    // In case Python prints warnings to stdout, extract just the JSON
-    const jsonStart = rawOutput.indexOf('{');
-    const jsonEnd = rawOutput.lastIndexOf('}') + 1;
-    const cleanJson = jsonStart !== -1 ? rawOutput.substring(jsonStart, jsonEnd) : rawOutput;
-    
-    const result = JSON.parse(cleanJson);
-
-    if (!result.success) {
-        throw new Error(result.error);
-    }
-
-    return NextResponse.json({
-      bpm: result.bpm,
-      key: result.key,
-      duration: result.duration,
-      beats: result.beats,
-      downbeats: result.downbeats,
-      sections: result.sections,
-      bestEntryPoint: result.best_entry_point,
-      bestExitPoint: result.best_exit_point,
-      avgEnergy: result.avg_energy,
+      { maxBuffer: 10 * 1024 * 1024, timeout: 300000, killSignal: 'SIGKILL' } // 5 min
+    ).then(async ({ stdout }) => {
+        try {
+            const rawOutput = stdout.trim();
+            const jsonStart = rawOutput.indexOf('{');
+            const jsonEnd = rawOutput.lastIndexOf('}') + 1;
+            const cleanJson = jsonStart !== -1 ? rawOutput.substring(jsonStart, jsonEnd) : rawOutput;
+            const result = JSON.parse(cleanJson);
+            
+            if (!result.success) throw new Error(result.error);
+            
+            await fs.writeFile(jobFile, JSON.stringify({ status: "done", data: result }));
+        } catch (e: any) {
+            await fs.writeFile(jobFile, JSON.stringify({ status: "error", error: e.message }));
+        } finally {
+            if (tempDir) fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
+        }
+    }).catch(async (error: any) => {
+        await fs.writeFile(jobFile, JSON.stringify({ status: "error", error: error.message }));
+        if (tempDir) fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
     });
 
+    return NextResponse.json({ jobId, status: "analyzing" });
+
   } catch (error: any) {
-    console.error("Analysis Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to analyze track" },
-      { status: 500 }
-    );
-  } finally {
-    if (tempDir) {
-        fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
-    }
+    console.error("Analysis Initiation Error:", error);
+    return NextResponse.json({ error: error.message || "Failed to start analysis" }, { status: 500 });
   }
+}
+
+export async function GET(req: NextRequest) {
+    try {
+        const jobId = req.nextUrl.searchParams.get("jobId");
+        if (!jobId) return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+        
+        const jobFile = path.join(os.tmpdir(), `job_${jobId}.json`);
+        
+        try {
+            const data = await fs.readFile(jobFile, 'utf-8');
+            return NextResponse.json(JSON.parse(data));
+        } catch (e) {
+            return NextResponse.json({ status: "not_found" });
+        }
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
 }

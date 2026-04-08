@@ -52,15 +52,29 @@ export default function MashupMixer() {
       
       if (!res.ok) throw new Error(data.error);
 
-      if (type === "instrumental") {
-        setBgTrack(prev => (prev?.id === fileId ? { ...prev, isAnalyzing: false, ...data } : prev));
-      } else {
-        setMainTracks(prev => {
-          const updated = prev.map(t => 
-            t.id === fileId ? { ...t, isAnalyzing: false, ...data } : t
-          );
-          return [...updated].sort((a, b) => (a.bpm || 999) - (b.bpm || 999));
-        });
+      const jobId = data.jobId;
+      if (!jobId) throw new Error("No job ID returned from server");
+
+      while (true) {
+          await new Promise(r => setTimeout(r, 3000));
+          const pollRes = await fetch(`/api/analyze?jobId=${jobId}`);
+          const pollData = await pollRes.json();
+          
+          if (pollData.status === "done") {
+              if (type === "instrumental") {
+                setBgTrack(prev => (prev?.id === fileId ? { ...prev, isAnalyzing: false, ...pollData.data } : prev));
+              } else {
+                setMainTracks(prev => {
+                  const updated = prev.map(t => t.id === fileId ? { ...t, isAnalyzing: false, ...pollData.data } : t);
+                  return [...updated].sort((a, b) => (a.bpm || 999) - (b.bpm || 999));
+                });
+              }
+              break;
+          } else if (pollData.status === "error") {
+               throw new Error(pollData.error || "Analysis failed internally");
+          } else if (pollData.status === "not_found") {
+               throw new Error("Analysis job lost or expired");
+          }
       }
     } catch (e: any) {
       if (type === "instrumental") {
