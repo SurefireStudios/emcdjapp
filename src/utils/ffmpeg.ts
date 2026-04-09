@@ -270,18 +270,19 @@ export const generateSmartMix = (
       case "high_energy":
         // Order so energy peaks mid-set then finishes strong
         sorted.sort((a, b) => {
-          // Start medium, go high, reduce slightly, then big finish
+          if (!a || !a.analysis) return 0;
+          if (!b || !b.analysis) return 0;
           return a.analysis.avgEnergy - b.analysis.avgEnergy;
         });
         // Interleave: build up energy
         break;
       case "chill":
-        // Keep energy consistent and moderate
-        sorted.sort((a, b) => a.analysis.avgEnergy - b.analysis.avgEnergy);
-        break;
       case "build_up":
-        // Low to high energy progression
-        sorted.sort((a, b) => a.analysis.avgEnergy - b.analysis.avgEnergy);
+        sorted.sort((a, b) => {
+          if (!a || !a.analysis) return 0;
+          if (!b || !b.analysis) return 0;
+          return a.analysis.avgEnergy - b.analysis.avgEnergy;
+        });
         break;
     }
 
@@ -380,15 +381,15 @@ export const generateSmartMix = (
  * Sort tracks by BPM within energy tiers for smoother transitions.
  */
 function sortByBpmWithinEnergyGroups<T extends SmartMixTrack>(tracks: T[]): T[] {
-  // Split into energy tiers
-  const low = tracks.filter(t => t.analysis.avgEnergy < 0.4);
-  const mid = tracks.filter(t => t.analysis.avgEnergy >= 0.4 && t.analysis.avgEnergy < 0.7);
-  const high = tracks.filter(t => t.analysis.avgEnergy >= 0.7);
+  // Split into energy tiers (using safe access with fallbacks to avoid any possible crash)
+  const low = tracks.filter(t => (t?.analysis?.avgEnergy || 0) < 0.4);
+  const mid = tracks.filter(t => (t?.analysis?.avgEnergy || 0) >= 0.4 && (t?.analysis?.avgEnergy || 0) < 0.7);
+  const high = tracks.filter(t => (t?.analysis?.avgEnergy || 0) >= 0.7);
 
-  // Sort each tier by BPM
-  low.sort((a, b) => a.analysis.bpm - b.analysis.bpm);
-  mid.sort((a, b) => a.analysis.bpm - b.analysis.bpm);
-  high.sort((a, b) => a.analysis.bpm - b.analysis.bpm);
+  // Sort each tier by BPM safely
+  low.sort((a, b) => (a?.analysis?.bpm || 120) - (b?.analysis?.bpm || 120));
+  mid.sort((a, b) => (a?.analysis?.bpm || 120) - (b?.analysis?.bpm || 120));
+  high.sort((a, b) => (a?.analysis?.bpm || 120) - (b?.analysis?.bpm || 120));
 
   // Order: build from low → mid → high
   return [...low, ...mid, ...high];
@@ -585,11 +586,13 @@ export const generateVirtualDJMix = (
     const sorted = [...tracks];
     switch (strategy) {
       case "high_energy":
-        sorted.sort((a, b) => a.analysis.avgEnergy - b.analysis.avgEnergy);
-        break;
       case "chill":
       case "build_up":
-        sorted.sort((a, b) => a.analysis.avgEnergy - b.analysis.avgEnergy);
+        sorted.sort((a, b) => {
+          if (!a || !a.analysis) return 0;
+          if (!b || !b.analysis) return 0;
+          return a.analysis.avgEnergy - b.analysis.avgEnergy;
+        });
         break;
     }
     const reordered = sortByBpmWithinEnergyGroups(sorted);
@@ -613,28 +616,29 @@ export const generateVirtualDJMix = (
       trackInputMap.set(i, mapObj);
     });
 
-    const targetBpm = reordered[0].analysis.bpm;
+    const targetBpm = reordered[0]?.analysis?.bpm || 120;
     let filterGraph = "";
     let previousOutput = "[a0]";
 
     for (let i = 0; i < reordered.length; i++) {
         const track = reordered[i];
+        if (!track || !track.analysis) continue;
         const isFirst = i === 0;
         const isLast = i === reordered.length - 1;
         const mapObj = trackInputMap.get(i)!;
         
-        let ratio = targetBpm / track.analysis.bpm;
+        let ratio = targetBpm / (track.analysis.bpm || targetBpm);
         if (ratio < 0.85) ratio = 0.85;
         if (ratio > 1.15) ratio = 1.15;
         const atempoFilter = buildAtempoChain(ratio);
 
-        const entry = isFirst ? snapToDownbeat(track.analysis.bestEntryPoint, track.analysis.downbeats) : snapToDownbeat(track.analysis.bestEntryPoint, track.analysis.downbeats);
+        const entry = isFirst ? snapToDownbeat(track.analysis.bestEntryPoint || 0, track.analysis.downbeats || []) : snapToDownbeat(track.analysis.bestEntryPoint || 0, track.analysis.downbeats || []);
         
         let exit: number;
         if (isLast && playLastTrackToEnd) {
-          exit = track.analysis.duration;
+          exit = track.analysis.duration || 180;
         } else {
-          exit = track.resolvedExit ?? snapToDownbeat(resolveExitPoint(track.analysis, mixDuration), track.analysis.downbeats);
+          exit = track.resolvedExit ?? snapToDownbeat(resolveExitPoint(track.analysis, mixDuration), track.analysis.downbeats || []);
         }
 
         const nextProcessed = `[t${i}]`;
@@ -675,7 +679,7 @@ export const generateVirtualDJMix = (
         const currentOutput = `[a${i}]`;
         const outLabel = isLast ? "[out]" : currentOutput;
         
-        const avgBpm = (targetBpm + track.analysis.bpm) / 2;
+        const avgBpm = (targetBpm + (track.analysis.bpm || 120)) / 2;
         const crossfade = calculateCrossfadeDuration(avgBpm);
         
         filterGraph += `${previousOutput}${nextProcessed}acrossfade=d=${crossfade.toFixed(2)}:c1=tri:c2=tri${outLabel}`;
