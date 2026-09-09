@@ -61,7 +61,21 @@ jobs:
 
       - name: Analyse the sample track end to end
         run: |
-          python scripts/analyze.py test.mp3 > analysis.json
+          # analyze.py reports failures as JSON on stdout and exits non-zero, so capture
+          # the output and always print it - otherwise a failure shows up as a bare
+          # "exit code 1" with no explanation.
+          set +e
+          python scripts/analyze.py test.mp3 > analysis.json 2> analysis.err
+          status=$?
+          set -e
+          echo "--- analyzer exited $status; stdout ---"
+          cat analysis.json || true
+          echo "--- stderr ---"
+          cat analysis.err || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::scripts/analyze.py exited $status"
+            exit 1
+          fi
           python - <<'EOF'
           import json, sys
 
