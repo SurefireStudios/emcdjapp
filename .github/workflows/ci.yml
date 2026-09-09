@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: lint · typecheck · build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20.19'
+          cache: npm
+
+      # setup.js provisions a Python venv for local development. CI checks the Python
+      # side separately, so skip it here and keep the web job fast.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+  python:
+    name: python engine
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install analysis requirements
+        run: pip install -r requirements.txt
+
+      - name: Byte-compile the scripts
+        run: python -m compileall -q scripts/
+
+      - name: Analyse the sample track end to end
+        run: |
+          python scripts/analyze.py test.mp3 > analysis.json
+          python - <<'EOF'
+          import json, sys
+
+          with open("analysis.json") as handle:
+              data = json.loads(handle.read().strip().splitlines()[-1])
+
+          required = [
+              "success", "bpm", "key", "duration",
+              "beats", "downbeats", "sections",
+              "best_entry_point", "best_exit_point", "avg_energy",
+          ]
+          missing = [k for k in required if k not in data]
+          if missing:
+              sys.exit("analysis is missing keys: %s" % missing)
+          if not data["success"]:
+              sys.exit("analysis reported failure")
+          if not (data["bpm"] > 0 and data["duration"] > 0):
+              sys.exit("analysis returned a non-positive bpm or duration")
+          if not data["beats"] or not data["downbeats"] or not data["sections"]:
+              sys.exit("analysis returned an empty beat, downbeat or section list")
+
+          print("bpm=%s key=%s duration=%.1fs beats=%d downbeats=%d sections=%d"
+                % (data["bpm"], data["key"], data["duration"],
+                   len(data["beats"]), len(data["downbeats"]), len(data["sections"])))
+          EOF

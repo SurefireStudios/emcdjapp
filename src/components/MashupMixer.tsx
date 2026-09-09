@@ -3,6 +3,8 @@
 import { useState, useCallback } from "react";
 import AudioPlayer from "@/components/AudioPlayer";
 import { Loader2, Music, UploadCloud, X, Zap, Layers } from "lucide-react";
+import { TrackSection } from "@/types/audio";
+import { getErrorMessage } from "@/utils/errors";
 
 interface AnalyzedFile {
   file: File;
@@ -11,7 +13,7 @@ interface AnalyzedFile {
   bpm?: number;
   key?: string;
   duration?: number;
-  sections?: any;
+  sections?: TrackSection[];
   beats?: number[];
   downbeats?: number[];
   bestEntryPoint?: number;
@@ -76,12 +78,12 @@ export default function MashupMixer() {
                throw new Error("Analysis job lost or expired");
           }
       }
-    } catch (e: any) {
+    } catch (e) {
       if (type === "instrumental") {
-        setBgTrack(prev => (prev?.id === fileId ? { ...prev, isAnalyzing: false, error: e.message } : prev));
+        setBgTrack(prev => (prev?.id === fileId ? { ...prev, isAnalyzing: false, error: getErrorMessage(e) } : prev));
       } else {
         setMainTracks(prev => prev.map(t => 
-          t.id === fileId ? { ...t, isAnalyzing: false, error: e.message } : t
+          t.id === fileId ? { ...t, isAnalyzing: false, error: getErrorMessage(e) } : t
         ));
       }
     }
@@ -182,8 +184,8 @@ export default function MashupMixer() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setMixUrl(data.mixUrl);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsProcessing(false);
     }
@@ -347,7 +349,7 @@ export default function MashupMixer() {
               Mashup Generator
             </h3>
             <p className="text-sm text-zinc-400 border-b border-zinc-700/50 pb-6 mb-6">
-              AI maps main tracks to the instrumental's downbeats.
+              AI maps main tracks to the instrumental&apos;s downbeats.
             </p>
 
             <div className="mb-6 space-y-6">

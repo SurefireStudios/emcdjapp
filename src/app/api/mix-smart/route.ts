@@ -3,6 +3,7 @@ import { generateSmartMix, SmartMixTrack, TrackAnalysis } from "@/utils/ffmpeg";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
+import { getErrorMessage } from "@/utils/errors";
 
 export async function POST(req: NextRequest) {
   let tempDir: string | null = null;
@@ -67,13 +68,13 @@ export async function POST(req: NextRequest) {
       mixUrl: `/api/download?file=${outputFilename}`,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Smart Mix API Error:", error);
     if (tempDir) {
       fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
     }
     return NextResponse.json(
-      { error: error.message || "Failed to process the smart mix" },
+      { error: getErrorMessage(error, "Failed to process the smart mix") },
       { status: 500 }
     );
   }

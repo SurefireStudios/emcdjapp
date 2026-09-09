@@ -1,0 +1,10 @@
+# Python dependencies for the audio analysis engine (scripts/analyze.py).
+#
+# Installed automatically into .venv by `npm install` (see scripts/setup.js).
+# librosa pulls in scipy and scikit-learn transitively, but analyze.py imports them
+# directly, so they are declared here too.
+
+librosa>=0.10.1
+numpy>=1.24
+scipy>=1.11
+scikit-learn>=1.3

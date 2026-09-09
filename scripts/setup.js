@@ -61,7 +61,7 @@ if (!fs.existsSync(venvPath)) {
     try {
         console.log('   Creating .venv...');
         execSync(`${pythonCmd} -m venv .venv`, { stdio: 'inherit' });
-    } catch (e) {
+    } catch {
         console.error('❌ Failed to create virtual environment.');
         process.exit(1);
     }
@@ -78,7 +78,7 @@ const pipCmd = os.platform() === 'win32'
 try {
     execSync(`"${pipCmd}" install -r requirements.txt`, { stdio: 'inherit' });
     console.log('\n✅ Python environment fully set up and dependencies installed!');
-} catch (e) {
+} catch {
     console.error('\n❌ Failed to install Python dependencies.');
     process.exit(1);
 }

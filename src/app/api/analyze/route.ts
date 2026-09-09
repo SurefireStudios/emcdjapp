@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import os from "os";
 import util from "util";
+import { getErrorMessage } from "@/utils/errors";
 
 const execPromise = util.promisify(exec);
 
@@ -67,21 +68,21 @@ export async function POST(req: NextRequest) {
             if (!result.success) throw new Error(result.error);
             
             await fs.writeFile(jobFile, JSON.stringify({ status: "done", data: result }));
-        } catch (e: any) {
-            await fs.writeFile(jobFile, JSON.stringify({ status: "error", error: e.message }));
+        } catch (e) {
+            await fs.writeFile(jobFile, JSON.stringify({ status: "error", error: getErrorMessage(e) }));
         } finally {
             if (tempDir) fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
         }
-    }).catch(async (error: any) => {
-        await fs.writeFile(jobFile, JSON.stringify({ status: "error", error: error.message }));
+    }).catch(async (error: unknown) => {
+        await fs.writeFile(jobFile, JSON.stringify({ status: "error", error: getErrorMessage(error) }));
         if (tempDir) fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
     });
 
     return NextResponse.json({ jobId, status: "analyzing" });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Analysis Initiation Error:", error);
-    return NextResponse.json({ error: error.message || "Failed to start analysis" }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to start analysis") }, { status: 500 });
   }
 }
 
@@ -95,10 +96,10 @@ export async function GET(req: NextRequest) {
         try {
             const data = await fs.readFile(jobFile, 'utf-8');
             return NextResponse.json(JSON.parse(data));
-        } catch (e) {
+        } catch {
             return NextResponse.json({ status: "not_found" });
         }
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e) {
+        return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
     }
 }

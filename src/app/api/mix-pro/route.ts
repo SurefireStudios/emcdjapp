@@ -3,6 +3,7 @@ import { generateMixPro } from "@/utils/ffmpeg";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
+import { getErrorMessage } from "@/utils/errors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,10 +47,10 @@ export async function POST(req: NextRequest) {
         mixUrl: `/api/download?file=${outputFilename}`
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Pro API Error processing mix:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to process the Pro mix" },
+      { error: getErrorMessage(error, "Failed to process the Pro mix") },
       { status: 500 }
     );
   }

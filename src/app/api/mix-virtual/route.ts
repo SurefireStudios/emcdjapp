@@ -8,6 +8,9 @@ import {
   VirtualDJTrack 
 } from "@/utils/ffmpeg";
 import { spawn } from "child_process";
+import { SplitResult } from "@/types/audio";
+import { getErrorMessage } from "@/utils/errors";
+import type { TrackAnalysis } from "@/types/audio";
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
         const filePath = path.join(tempDir, `track_${i}_${Date.now()}.mp3`);
         fs.writeFileSync(filePath, buffer);
         
-        const fallbackAnalysis: any = { bpm: 120, key: "C", duration: 180, beats: [], downbeats: [], sections: [], bestEntryPoint: 0, bestExitPoint: 180, avgEnergy: 0.5 };
+        const fallbackAnalysis: TrackAnalysis = { bpm: 120, key: "C", duration: 180, beats: [], downbeats: [], sections: [], bestEntryPoint: 0, bestExitPoint: 180, avgEnergy: 0.5 };
         const safeAnalysis = analysisData[i] || fallbackAnalysis;
         
         tracks.push({
@@ -80,13 +83,20 @@ export async function POST(req: NextRequest) {
             const splitOutDir = path.join(tempDir, `split_${i}_${Date.now()}`);
             const pythonScript = path.join(process.cwd(), "scripts", "split.py");
             
+            // Resolve the venv interpreter per platform. This previously hard-coded the
+            // Windows path, so vocal isolation always failed on Linux (Docker, Render)
+            // and silently fell back to mixing without it.
+            const pythonExecutable = process.platform === "win32"
+                ? path.join(process.cwd(), ".venv", "Scripts", "python.exe")
+                : path.join(process.cwd(), ".venv", "bin", "python3");
+
             const pythonProcess = spawn(
-                path.join(process.cwd(), ".venv", "Scripts", "python.exe"), 
+                pythonExecutable,
                 [pythonScript, "--input", slicePath, "--outdir", splitOutDir],
                 { shell: true }
             );
             
-            const splitResult = await new Promise<any>((resolve, reject) => {
+            const splitResult = await new Promise<SplitResult>((resolve, reject) => {
                 let stdoutData = "";
                 let stderrData = "";
                 
@@ -99,7 +109,7 @@ export async function POST(req: NextRequest) {
                         const jsonLines = stdoutData.trim().split("\n");
                         const lastLine = jsonLines[jsonLines.length - 1]; // We output JSON on the last line
                         resolve(JSON.parse(lastLine));
-                    } catch (e) {
+                    } catch {
                         reject(new Error("Failed to parse split.py output JSON"));
                     }
                 });
@@ -129,10 +139,10 @@ export async function POST(req: NextRequest) {
       success: true,
       mixUrl: `/mixes/${outputFileName}`,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Virtual DJ API Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate mix" },
+      { error: getErrorMessage(error, "Failed to generate mix") },
       { status: 500 }
     );
   }

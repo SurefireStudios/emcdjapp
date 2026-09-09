@@ -1,27 +1,12 @@
+import type { TrackAnalysis } from "@/types/audio";
 import ffmpeg from "fluent-ffmpeg";
-import path from "path";
-import fs from "fs";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface TrackSection {
-  start: number;
-  end: number;
-  energy: number;
-  label: "low" | "mid" | "high" | "full";
-}
-
-export interface TrackAnalysis {
-  bpm: number;
-  key: string;
-  duration: number;
-  beats: number[];
-  downbeats: number[];
-  sections: TrackSection[];
-  bestEntryPoint: number;
-  bestExitPoint: number;
-  avgEnergy: number;
-}
+// TrackSection and TrackAnalysis live in src/types/audio.ts so client components can
+// import them without pulling fluent-ffmpeg into the browser bundle. Re-exported here
+// so existing "@/utils/ffmpeg" imports keep working.
+export type { TrackSection, TrackAnalysis } from "@/types/audio";
 
 // ─── Legacy: Basic Mix (unchanged) ──────────────────────────────────────────
 
@@ -302,7 +287,6 @@ export const generateSmartMix = (
     const first = reordered[0];
     const firstEntry = snapToDownbeat(first.analysis.bestEntryPoint, first.analysis.downbeats);
     const firstExit = snapToDownbeat(first.analysis.bestExitPoint, first.analysis.downbeats);
-    const firstDuration = firstExit - firstEntry;
 
     filterGraph += `[0:a]atrim=start=${firstEntry}:end=${firstExit},asetpts=PTS-STARTPTS,afade=t=in:d=2[a0]; `;
 
@@ -426,19 +410,17 @@ export const generateMashupMix = (
     
     // Calculate total duration needed for the background track
     // Sum up the best sections of all main tracks
-    let totalMainDuration = 0;
+
     const mainDurations: number[] = [];
     for (const t of mainTracks) {
       const dur = t.analysis.bestExitPoint - t.analysis.bestEntryPoint;
       mainDurations.push(dur);
-      totalMainDuration += dur;
     }
 
     // ── Build filter graph ───────────────────────────────────────────────
     let filterGraph = "";
 
     // Background track: loop/extend to cover total duration, tempo-match, apply volume
-    const bgDuration = backgroundTrack.analysis.duration;
     
     // If background is shorter than needed, we'll use aloop or just let it play
     // Apply EQ: cut mids on background to make room for vocals
@@ -607,7 +589,7 @@ export const generateVirtualDJMix = (
     
     reordered.forEach((t, i) => {
       command.input(t.file);
-      const mapObj: any = { main: inputIndex++ };
+      const mapObj: { main: number; outro?: number } = { main: inputIndex++ };
       
       if (t.noVocalsOutro) {
         command.input(t.noVocalsOutro);

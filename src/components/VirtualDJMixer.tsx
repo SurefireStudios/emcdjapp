@@ -2,7 +2,9 @@
 
 import { useState, useCallback } from "react";
 import AudioPlayer from "@/components/AudioPlayer";
-import { Loader2, Music, UploadCloud, X, LayoutTemplate, Settings2 } from "lucide-react";
+import { Loader2, UploadCloud, X, LayoutTemplate, Settings2 } from "lucide-react";
+import { TrackSection } from "@/types/audio";
+import { getErrorMessage } from "@/utils/errors";
 
 interface AnalyzedFile {
   file: File;
@@ -11,7 +13,7 @@ interface AnalyzedFile {
   bpm?: number;
   key?: string;
   duration?: number;
-  sections?: any;
+  sections?: TrackSection[];
   beats?: number[];
   downbeats?: number[];
   bestEntryPoint?: number;
@@ -77,9 +79,9 @@ export default function VirtualDJMixer() {
           }
           // if analyzing, continue loop
       }
-    } catch (e: any) {
+    } catch (e) {
       setTracks(prev => prev.map(t => 
-        t.id === fileId ? { ...t, isAnalyzing: false, error: e.message } : t
+        t.id === fileId ? { ...t, isAnalyzing: false, error: getErrorMessage(e) } : t
       ));
     }
   };
@@ -152,8 +154,8 @@ export default function VirtualDJMixer() {
       
       setProcessStage("Mixing complete!");
       setMixUrl(data.mixUrl);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsProcessing(false);
       setTimeout(() => setProcessStage(""), 2000);

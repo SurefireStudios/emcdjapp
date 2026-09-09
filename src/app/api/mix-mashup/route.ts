@@ -3,6 +3,7 @@ import { generateMashupMix, SmartMixTrack, TrackAnalysis, MashupOptions } from "
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
+import { getErrorMessage } from "@/utils/errors";
 
 export async function POST(req: NextRequest) {
   let tempDir: string | null = null;
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     const bgPath = path.join(tempDir, `bg_track${bgExt}`);
     await fs.writeFile(bgPath, bgBuffer);
 
-    const fallbackAnalysis: any = { bpm: 120, key: "C", duration: 180, beats: [], downbeats: [], sections: [], bestEntryPoint: 0, bestExitPoint: 180, avgEnergy: 0.5 };
+    const fallbackAnalysis: TrackAnalysis = { bpm: 120, key: "C", duration: 180, beats: [], downbeats: [], sections: [], bestEntryPoint: 0, bestExitPoint: 180, avgEnergy: 0.5 };
 
     const backgroundTrack: SmartMixTrack = {
       file: bgPath,
@@ -94,13 +95,13 @@ export async function POST(req: NextRequest) {
       mixUrl: `/api/download?file=${outputFilename}`,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Mashup API Error:", error);
     if (tempDir) {
       fs.rm(tempDir, { recursive: true, force: true }).catch(console.error);
     }
     return NextResponse.json(
-      { error: error.message || "Failed to process the mashup mix" },
+      { error: getErrorMessage(error, "Failed to process the mashup mix") },
       { status: 500 }
     );
   }

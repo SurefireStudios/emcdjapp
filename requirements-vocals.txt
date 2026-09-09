@@ -1,0 +1,13 @@
+# Optional: vocal separation for the Virtual DJ mixer (scripts/split.py).
+#
+# Not installed by default - demucs pulls in PyTorch, which is a multi-gigabyte
+# download. Install it only if you want vocal isolation:
+#
+#   .venv/bin/pip install -r requirements-vocals.txt        (macOS / Linux)
+#   .venv\Scripts\pip install -r requirements-vocals.txt    (Windows)
+#
+# Without it, the Virtual DJ mixer still works - it falls back to mixing without
+# isolating the outgoing vocals.
+
+demucs>=4.0.1
+torchaudio>=2.1

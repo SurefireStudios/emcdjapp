@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import AudioPlayer from "@/components/AudioPlayer";
-import { Loader2, Music, UploadCloud, X, Zap } from "lucide-react";
+import { Loader2, UploadCloud, X, Zap } from "lucide-react";
+import { TrackSection } from "@/types/audio";
+import { getErrorMessage } from "@/utils/errors";
 
 interface AnalyzedFile {
   file: File;
@@ -11,7 +13,7 @@ interface AnalyzedFile {
   bpm?: number;
   key?: string;
   duration?: number;
-  sections?: any;
+  sections?: TrackSection[];
   beats?: number[];
   downbeats?: number[];
   bestEntryPoint?: number;
@@ -70,9 +72,9 @@ export default function ProMixer() {
                throw new Error("Analysis job lost or expired");
           }
       }
-    } catch (e: any) {
+    } catch (e) {
       setTracks(prev => prev.map(t => 
-        t.id === fileId ? { ...t, isAnalyzing: false, error: e.message } : t
+        t.id === fileId ? { ...t, isAnalyzing: false, error: getErrorMessage(e) } : t
       ));
     }
   };
@@ -155,8 +157,8 @@ export default function ProMixer() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setMixUrl(data.mixUrl);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsProcessing(false);
     }

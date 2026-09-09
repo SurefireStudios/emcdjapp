@@ -17,9 +17,6 @@ export default function AudioPlayer({ audioUrl }: AudioPlayerProps) {
   useEffect(() => {
     if (!audioUrl || !containerRef.current) return;
 
-    setIsReady(false);
-    setIsPlaying(false);
-
     // Initialize wavesurfer
     const wavesurfer = WaveSurfer.create({
       container: containerRef.current,
@@ -47,6 +44,11 @@ export default function AudioPlayer({ audioUrl }: AudioPlayerProps) {
 
     return () => {
       wavesurfer.destroy();
+      // Reset here rather than at the top of the effect: setting state during an effect
+      // is flagged by react-hooks/set-state-in-effect. Cleanup runs immediately before
+      // the effect re-runs for a new audioUrl, so the reset still happens in time.
+      setIsReady(false);
+      setIsPlaying(false);
     };
   }, [audioUrl]);
 

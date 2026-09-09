@@ -17,21 +17,21 @@ ENV VIRTUAL_ENV=/app/.venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install Python requirements (librosa, numpy)
-# We install them inside the VENV to avoid PEP 668 restrictions
-RUN pip install --no-cache-dir librosa numpy
+# Install Python requirements inside the VENV to avoid PEP 668 restrictions.
+# Uses requirements.txt so the container and a local checkout stay in sync.
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install Node dependencies
-RUN npm ci
+# Install Node dependencies.
+# --ignore-scripts skips scripts/setup.js: it would build a second virtualenv, and the
+# Python environment is already provisioned above.
+RUN npm ci --ignore-scripts
 
 # Copy the rest of the application code
 COPY . .
-
-# Ensure the public/mixes directory exists
-RUN mkdir -p public/mixes
 
 # Build the Next.js application
 RUN npm run build
