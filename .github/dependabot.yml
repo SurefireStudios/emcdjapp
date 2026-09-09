@@ -5,26 +5,42 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: deps
     labels:
       - dependencies
+    # Batch related updates so a weekly run opens a couple of PRs, not a dozen.
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      next:
+        patterns: ["next", "eslint-config-next"]
+      dev-tooling:
+        dependency-type: development
 
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 2
     commit-message:
       prefix: deps
     labels:
       - dependencies
+    groups:
+      python-audio:
+        patterns: ["*"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 2
     commit-message:
       prefix: ci
     labels:
       - dependencies
+    groups:
+      actions:
+        patterns: ["*"]

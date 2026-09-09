@@ -1,5 +1,7 @@
-# Use a Debian-based Node.js runtime as a parent image
-FROM node:20-bullseye
+# Use a Debian-based Node.js runtime as a parent image.
+# bookworm (Debian 12) ships Python 3.11; bullseye ships 3.9, which is below the 3.10+
+# the setup script and docs ask for.
+FROM node:20-bookworm
 
 # Set the working directory in the container
 WORKDIR /app
