@@ -10,4 +10,4 @@
 # isolating the outgoing vocals.
 
 demucs>=4.0.1
-torchaudio>=2.1
+torchaudio>=2.11.0
