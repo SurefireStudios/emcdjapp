@@ -53,6 +53,14 @@ jobs:
           python-version: '3.11'
           cache: pip
 
+      # analyze.py shells out to ffmpeg to decode the input before handing it to librosa,
+      # so the engine needs it just as much as the mixing routes do.
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -1
+
       - name: Install analysis requirements
         run: pip install -r requirements.txt
 
