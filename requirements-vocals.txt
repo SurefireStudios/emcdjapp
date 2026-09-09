@@ -9,5 +9,5 @@
 # Without it, the Virtual DJ mixer still works - it falls back to mixing without
 # isolating the outgoing vocals.
 
-demucs>=4.0.1
+demucs>=4.1.0
 torchaudio>=2.1
